@@ -72,9 +72,6 @@ export const addHrfToGraph = (
     DENOISE_LATENTS
   ] as DenoiseLatentsInvocation;
   const originalNoiseNode = graph.nodes[NOISE] as NoiseInvocation;
-  const originalImageToLatentsNode = graph.nodes[
-    IMAGE_TO_LATENTS
-  ] as ImageToLatentsInvocation;
   const originalLatentsToImageNode = graph.nodes[
     LATENTS_TO_IMAGE
   ] as LatentsToImageInvocation;
@@ -113,22 +110,20 @@ export const addHrfToGraph = (
   graph.nodes[LATENTS_TO_IMAGE_HRF] = {
     type: originalLatentsToImageNode.type,
     id: LATENTS_TO_IMAGE_HRF,
-    fp32: originalLatentsToImageNode.fp32,
     is_intermediate: true,
   } as LatentsToImageInvocation;
 
   graph.nodes[RESIZE_HRF] = {
+    type: 'esrgan',
     id: RESIZE_HRF,
     is_intermediate: true,
     model_name: 'RealESRGAN_x2plus.pth',
   } as ESRGANInvocation;
 
   graph.nodes[IMAGE_TO_LATENTS_HRF] = {
+    type: 'i2l',
     id: IMAGE_TO_LATENTS_HRF,
     is_intermediate: true,
-    fp32: originalImageToLatentsNode.fp32,
-    tiled: originalImageToLatentsNode.tiled,
-    use_cache: originalImageToLatentsNode.use_cache,
   } as ImageToLatentsInvocation;
 
   graph.nodes[DENOISE_LATENTS_HRF] = {

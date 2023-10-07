@@ -30,7 +30,7 @@ export default function ParamHrfCollapse() {
   }, [hrfToggled]);
 
   return (
-    <IAICollapse label="High Resolution Fix" activeLabel={activeLabel}>
+    <IAICollapse label="High Resolution Fix ERSGAN" activeLabel={activeLabel}>
       <Flex sx={{ flexDir: 'column', gap: 2 }}>
         <ParamHrfToggle />
         <ParamHrfScale />
