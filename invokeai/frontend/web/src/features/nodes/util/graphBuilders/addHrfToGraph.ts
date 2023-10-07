@@ -6,6 +6,8 @@ import {
   MetadataAccumulatorInvocation,
   NoiseInvocation,
   LatentsToImageInvocation,
+  ImageToLatentsInvocation,
+  ESRGANInvocation,
   Edge,
 } from 'services/api/types';
 import {
@@ -19,6 +21,8 @@ import {
   RESCALE_LATENTS,
   NOISE_HRF,
   VAE_LOADER,
+  IMAGE_TO_LATENTS_HRF,
+  RESIZE_HRF,
 } from './constants';
 
 // Copy certain connections from previous DENOISE_LATENTS to new DENOISE_LATENTS_HRF.
@@ -109,6 +113,7 @@ export const addHrfToGraph = (
     type: 'lresize',
     width: scaledWidth,
     height: scaledHeight,
+    is_intermediate: true,
   };
 
   // New higher resolution noise node.
@@ -119,16 +124,28 @@ export const addHrfToGraph = (
     width: scaledWidth,
     height: scaledHeight,
     use_cpu: originalNoiseNode.use_cpu,
-    is_intermediate: originalNoiseNode.is_intermediate,
+    is_intermediate: true,
   };
 
   // New node to convert latents to image.
   const latentsToImageHrfNode: LatentsToImageInvocation = {
     type: originalLatentsToImageNode.type,
     id: LATENTS_TO_IMAGE_HRF,
-    vae: originalLatentsToImageNode.vae,
     fp32: originalLatentsToImageNode.fp32,
-    is_intermediate: originalLatentsToImageNode.is_intermediate,
+    is_intermediate: true,
+  };
+
+  // New node to convert image to latents.
+  const imageToLatentsHrfNode: ImageToLatentsInvocation = {
+    id: IMAGE_TO_LATENTS_HRF,
+    is_intermediate: true,
+  };
+
+  // New node to upscale image.
+  const upscaleImageNode: ESRGANInvocation = {
+    id: RESIZE_HRF,
+    is_intermediate: true,
+    model_name: 'RealESRGAN_x2plus.pth',
   };
 
   // Add new nodes to graph.
@@ -139,6 +156,11 @@ export const addHrfToGraph = (
   graph.nodes[RESCALE_LATENTS] = rescaleLatentsNode as RescaleLatentsInvocation;
   graph.nodes[NOISE_HRF] = hrfNoiseNode as NoiseInvocation;
 
+  // Current
+  // Denoise latents -> resclae latents -> denoise latents -> image
+
+  // Want
+  // Denoise latents -> image -> upscale image -> latents -> denoise latents -> image
   // Connect nodes.
   graph.edges.push(
     {
