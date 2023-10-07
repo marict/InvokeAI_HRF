@@ -2,7 +2,6 @@ import { RootState } from 'app/store/store';
 import { NonNullableGraph } from 'features/nodes/types/types';
 import {
   DenoiseLatentsInvocation,
-  RescaleLatentsInvocation,
   MetadataAccumulatorInvocation,
   NoiseInvocation,
   LatentsToImageInvocation,
@@ -136,14 +135,11 @@ export const addHrfToGraph = (
     denoising_end: 1,
   } as DenoiseLatentsInvocation;
 
-  // Current
-  // Denoise latents -> rescale latents -> denoise latents -> image
-
   // Want
   // Denoise latents -> image -> upscale image -> latents -> denoise latents -> image
   // Connect nodes.
   graph.edges.push(
-    // image -> upscale image
+    // Image -> upscale image.
     {
       source: {
         node_id: LATENTS_TO_IMAGE,
@@ -154,7 +150,7 @@ export const addHrfToGraph = (
         field: 'image',
       },
     },
-    // upscale -> latents
+    // Upscale -> latents.
     {
       source: {
         node_id: RESIZE_HRF,
@@ -175,7 +171,7 @@ export const addHrfToGraph = (
         field: 'vae',
       },
     },
-    // latents -> denoise latents
+    // Latents -> denoise latents.
     {
       source: {
         node_id: IMAGE_TO_LATENTS_HRF,
