@@ -18,7 +18,6 @@ import {
   METADATA_ACCUMULATOR,
   LATENTS_TO_IMAGE_HRF,
   DENOISE_LATENTS_HRF,
-  RESCALE_LATENTS,
   NOISE_HRF,
   VAE_LOADER,
   IMAGE_TO_LATENTS_HRF,
@@ -78,7 +77,9 @@ export const addHrfToGraph = (
   ] as LatentsToImageInvocation;
 
   // Scale height and width by hrfScale.
-  const hrfScale = state.generation.hrfScale;
+  //const hrfScale = state.generation.hrfScale;
+  // HACK: Ignore hrfScale for now
+  const hrfScale = 2;
   const scaledHeight = originalNoiseNode?.height
     ? originalNoiseNode.height * hrfScale
     : undefined;
@@ -95,29 +96,8 @@ export const addHrfToGraph = (
     metadataAccumulator.width = scaledWidth;
   }
 
-  // Define new nodes.
-  // Denoise latents node to be run on upscaled latents.
-  const denoiseLatentsHrfNode: DenoiseLatentsInvocation = {
-    type: 'denoise_latents',
-    id: DENOISE_LATENTS_HRF,
-    is_intermediate: originalDenoiseLatentsNode?.is_intermediate,
-    cfg_scale: originalDenoiseLatentsNode?.cfg_scale,
-    scheduler: originalDenoiseLatentsNode?.scheduler,
-    steps: originalDenoiseLatentsNode?.steps,
-    denoising_start: state.generation.hrfStrength,
-    denoising_end: 1,
-  };
-
-  const rescaleLatentsNode: RescaleLatentsInvocation = {
-    id: RESCALE_LATENTS,
-    type: 'lresize',
-    width: scaledWidth,
-    height: scaledHeight,
-    is_intermediate: true,
-  };
-
-  // New higher resolution noise node.
-  const hrfNoiseNode: NoiseInvocation = {
+  // Add new nodes to graph.
+  graph.nodes[NOISE_HRF] = {
     type: 'noise',
     id: NOISE_HRF,
     seed: originalNoiseNode.seed,
@@ -125,59 +105,80 @@ export const addHrfToGraph = (
     height: scaledHeight,
     use_cpu: originalNoiseNode.use_cpu,
     is_intermediate: true,
-  };
+  } as NoiseInvocation;
 
-  // New node to convert latents to image.
-  const latentsToImageHrfNode: LatentsToImageInvocation = {
+  graph.nodes[LATENTS_TO_IMAGE_HRF] = {
     type: originalLatentsToImageNode.type,
     id: LATENTS_TO_IMAGE_HRF,
     fp32: originalLatentsToImageNode.fp32,
     is_intermediate: true,
-  };
+  } as LatentsToImageInvocation;
 
-  // New node to convert image to latents.
-  const imageToLatentsHrfNode: ImageToLatentsInvocation = {
-    id: IMAGE_TO_LATENTS_HRF,
-    is_intermediate: true,
-  };
-
-  // New node to upscale image.
-  const upscaleImageNode: ESRGANInvocation = {
+  graph.nodes[RESIZE_HRF] = {
     id: RESIZE_HRF,
     is_intermediate: true,
     model_name: 'RealESRGAN_x2plus.pth',
-  };
+  } as ESRGANInvocation;
 
-  // Add new nodes to graph.
-  graph.nodes[LATENTS_TO_IMAGE_HRF] =
-    latentsToImageHrfNode as LatentsToImageInvocation;
-  graph.nodes[DENOISE_LATENTS_HRF] =
-    denoiseLatentsHrfNode as DenoiseLatentsInvocation;
-  graph.nodes[RESCALE_LATENTS] = rescaleLatentsNode as RescaleLatentsInvocation;
-  graph.nodes[NOISE_HRF] = hrfNoiseNode as NoiseInvocation;
+  graph.nodes[IMAGE_TO_LATENTS_HRF] = {
+    id: IMAGE_TO_LATENTS_HRF,
+    is_intermediate: true,
+  } as ImageToLatentsInvocation;
+
+  graph.nodes[DENOISE_LATENTS_HRF] = {
+    type: 'denoise_latents',
+    id: DENOISE_LATENTS_HRF,
+    is_intermediate: originalDenoiseLatentsNode?.is_intermediate,
+    cfg_scale: originalDenoiseLatentsNode?.cfg_scale,
+    scheduler: originalDenoiseLatentsNode?.scheduler,
+    steps: originalDenoiseLatentsNode?.steps,
+    denoising_start: 1 - state.generation.hrfStrength,
+    denoising_end: 1,
+  } as DenoiseLatentsInvocation;
 
   // Current
-  // Denoise latents -> resclae latents -> denoise latents -> image
+  // Denoise latents -> rescale latents -> denoise latents -> image
 
   // Want
   // Denoise latents -> image -> upscale image -> latents -> denoise latents -> image
   // Connect nodes.
   graph.edges.push(
+    // image -> upscale image
     {
-      // Set up resize latents.
       source: {
-        node_id: DENOISE_LATENTS,
-        field: 'latents',
+        node_id: LATENTS_TO_IMAGE,
+        field: 'image',
       },
       destination: {
-        node_id: RESCALE_LATENTS,
-        field: 'latents',
+        node_id: RESIZE_HRF,
+        field: 'image',
       },
     },
-    // Set up new denoise node.
+    // upscale -> latents
     {
       source: {
-        node_id: RESCALE_LATENTS,
+        node_id: RESIZE_HRF,
+        field: 'image',
+      },
+      destination: {
+        node_id: IMAGE_TO_LATENTS_HRF,
+        field: 'image',
+      },
+    },
+    {
+      source: {
+        node_id: isAutoVae ? MAIN_MODEL_LOADER : VAE_LOADER,
+        field: 'vae',
+      },
+      destination: {
+        node_id: IMAGE_TO_LATENTS_HRF,
+        field: 'vae',
+      },
+    },
+    // latents -> denoise latents
+    {
+      source: {
+        node_id: IMAGE_TO_LATENTS_HRF,
         field: 'latents',
       },
       destination: {
