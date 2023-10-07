@@ -19,6 +19,7 @@ import {
   DENOISE_LATENTS_HRF,
   NOISE_HRF,
   VAE_LOADER,
+  IMAGE_TO_LATENTS,
   IMAGE_TO_LATENTS_HRF,
   RESIZE_HRF,
 } from './constants';
@@ -71,6 +72,9 @@ export const addHrfToGraph = (
     DENOISE_LATENTS
   ] as DenoiseLatentsInvocation;
   const originalNoiseNode = graph.nodes[NOISE] as NoiseInvocation;
+  const originalImageToLatentsNode = graph.nodes[
+    IMAGE_TO_LATENTS
+  ] as ImageToLatentsInvocation;
   const originalLatentsToImageNode = graph.nodes[
     LATENTS_TO_IMAGE
   ] as LatentsToImageInvocation;
@@ -122,6 +126,9 @@ export const addHrfToGraph = (
   graph.nodes[IMAGE_TO_LATENTS_HRF] = {
     id: IMAGE_TO_LATENTS_HRF,
     is_intermediate: true,
+    fp32: originalImageToLatentsNode.fp32,
+    tiled: originalImageToLatentsNode.tiled,
+    use_cache: originalImageToLatentsNode.use_cache,
   } as ImageToLatentsInvocation;
 
   graph.nodes[DENOISE_LATENTS_HRF] = {
