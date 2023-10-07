@@ -19,7 +19,6 @@ import {
   DENOISE_LATENTS_HRF,
   NOISE_HRF,
   VAE_LOADER,
-  IMAGE_TO_LATENTS,
   IMAGE_TO_LATENTS_HRF,
   RESIZE_HRF,
 } from './constants';
